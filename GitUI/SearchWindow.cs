@@ -12,6 +12,8 @@ namespace GitUI
     
     public partial class SearchWindow<T> : Form where T : class
     {
+    	private const int MaxDispayItems = 20;
+        private const string MoreItemsIdentifier = "More...";
         private readonly Func<string, IList<T>> getCandidates;
         private Thread backgroundThread;
         private string _selectedText;
@@ -26,7 +28,7 @@ namespace GitUI
                 throw new InvalidOperationException("getCandidates cannot be null");
             }
             this.getCandidates = getCandidates;
-            AutoFit();
+            AutoFit(listBox1.Items.Count);
         }
 
         private void SearchForCandidates()
@@ -39,11 +41,16 @@ namespace GitUI
                 listBox1.BeginUpdate();
                 listBox1.Items.Clear();
 
-                for (int i = 0; i < candidates.Count && i < 20; i++)
+                for (int i = 0; i < candidates.Count && i < MaxDispayItems; i++)
                 {
                     listBox1.Items.Add(candidates[i]);
                 }
-                
+
+                if (candidates.Count > MaxDispayItems)
+                {
+                    listBox1.Items.Add(MoreItemsIdentifier);
+                }
+
                 listBox1.EndUpdate();
                 if (candidates.Count > 0)
                 {
@@ -51,15 +58,20 @@ namespace GitUI
                 }
                 textBox1.SelectionStart = selectionStart;
                 textBox1.SelectionLength = selectionLength;
-                AutoFit();
+                AutoFit(listBox1.Items.Count);
             }));
         }
 
-        private void AutoFit()
+        private void AutoFit(int displayCount)
         {
-            if (listBox1.Items.Count == 0)
+            displayCount = Math.Min(displayCount, listBox1.Items.Count);
+
+            if (displayCount == 0)
+            {
                 listBox1.Visible = false;
-                
+                return;
+            }
+
             listBox1.Visible = true;
                 
             int width = 300;
@@ -74,14 +86,21 @@ namespace GitUI
             }
             
             listBox1.Width = width;
-            listBox1.Height = Math.Min(800, listBox1.Font.Height * (listBox1.Items.Count + 1));
+            listBox1.Height = Math.Min(800, listBox1.Font.Height * (displayCount + 1));
             
             Width = listBox1.Width + 15;
         }
 
         public T SelectedItem
         {
-            get { return (T)listBox1.SelectedItem; }
+            get 
+            {
+                if ((string)listBox1.SelectedItem == MoreItemsIdentifier)
+                {
+                    return null;
+                }
+                return (T)listBox1.SelectedItem; 
+            }
         }
 
         private void SearchWindow_FormClosing(object sender, FormClosingEventArgs e)
@@ -116,7 +135,7 @@ namespace GitUI
             {
                 e.Handled = true;
                 e.SuppressKeyPress = true;
-                Close();
+                HandleSelectionOfItem();
             }
 
             if (e.KeyCode == Keys.Escape)
@@ -125,6 +144,41 @@ namespace GitUI
                 e.SuppressKeyPress = true;
                 Close();
             }
+        }
+
+        private void HandleSelectionOfItem()
+        {
+            if ((string)listBox1.SelectedItem == MoreItemsIdentifier)
+            {
+                IList<T> candidates = getCandidates(_selectedText);
+                BeginInvoke(new Action(delegate
+                {
+                    var selectionStart = textBox1.SelectionStart;
+                    var selectionLength = textBox1.SelectionLength;
+                    listBox1.BeginUpdate();
+                    listBox1.Items.Clear();
+
+                    for (int i = 0; i < candidates.Count; i++)
+                    {
+                        listBox1.Items.Add(candidates[i]);
+                    }
+
+                    listBox1.EndUpdate();
+                    if (candidates.Count > 0)
+                    {
+                        listBox1.SelectedIndex = 0;
+                    }
+                    textBox1.SelectionStart = selectionStart;
+                    textBox1.SelectionLength = selectionLength;
+                    AutoFit(MaxDispayItems);
+                }));
+                
+            }
+            else
+            {
+                Close();
+            }
+            
         }
 
         private void textBox1_KeyDown(object sender, KeyEventArgs e)
@@ -162,7 +216,7 @@ namespace GitUI
 
         private void listBox1_DoubleClick(object sender, EventArgs e)
         {
-            Close();
+            HandleSelectionOfItem();
         }
     }
 }
