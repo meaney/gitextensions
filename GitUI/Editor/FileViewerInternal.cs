@@ -203,7 +203,6 @@ namespace GitUI.Editor
         public void SetText(string text, Action openWithDifftool, bool isDiff = false)
         {
             _currentViewPositionCache.Capture();
-
             OpenWithDifftool = openWithDifftool;
             _lineNumbersControl.Clear(isDiff);
             _lineNumbersControl.SetVisibility(isDiff);
@@ -223,7 +222,13 @@ namespace GitUI.Editor
                 _lineNumbersControl.DisplayLineNumFor(text);
             }
 
+            int scrollPos = VScrollPosition;
             TextEditor.Text = text;
+
+            _currentViewPositionCache.Restore(isDiff);
+
+            // Reset the ScrollPos to stop annoying flicker when changing number of visible lines
+            VScrollPosition = scrollPos;
 
             // important to set after the text was changed
             // otherwise the may be rendering artifacts as noted in #5568
@@ -232,10 +237,6 @@ namespace GitUI.Editor
             {
                 Padding = new Padding(DpiUtil.Scale(5), Padding.Top, Padding.Right, Padding.Bottom);
             }
-
-            TextEditor.Refresh();
-
-            _currentViewPositionCache.Restore(isDiff);
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)

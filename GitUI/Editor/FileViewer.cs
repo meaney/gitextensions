@@ -958,6 +958,7 @@ namespace GitUI.Editor
 
         private void IncreaseNumberOfLinesToolStripMenuItemClick(object sender, EventArgs e)
         {
+            decreaseNumberOfLines.Enabled = true;
             NumberOfContextLines++;
             AppSettings.NumberOfContextLines = NumberOfContextLines;
             OnExtraDiffArgumentsChanged();
@@ -965,6 +966,7 @@ namespace GitUI.Editor
 
         private void DecreaseNumberOfLinesToolStripMenuItemClick(object sender, EventArgs e)
         {
+            increaseNumberOfLines.Enabled = true;
             if (NumberOfContextLines > 0)
             {
                 NumberOfContextLines--;
@@ -972,6 +974,7 @@ namespace GitUI.Editor
             else
             {
                 NumberOfContextLines = 0;
+                decreaseNumberOfLines.Enabled = false;
             }
 
             AppSettings.NumberOfContextLines = NumberOfContextLines;
