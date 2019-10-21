@@ -222,13 +222,9 @@ namespace GitUI.Editor
                 _lineNumbersControl.DisplayLineNumFor(text);
             }
 
-            int scrollPos = VScrollPosition;
             TextEditor.Text = text;
 
             _currentViewPositionCache.Restore(isDiff);
-
-            // Reset the ScrollPos to stop annoying flicker when changing number of visible lines
-            VScrollPosition = scrollPos;
 
             // important to set after the text was changed
             // otherwise the may be rendering artifacts as noted in #5568
@@ -486,6 +482,7 @@ namespace GitUI.Editor
         {
             private readonly FileViewerInternal _viewer;
             private ViewPosition _currentViewPosition;
+
             internal TestAccessor GetTestAccessor() => new TestAccessor(this);
 
             public CurrentViewPositionCache(FileViewerInternal viewer)
@@ -507,7 +504,8 @@ namespace GitUI.Editor
                     FirstLine = _viewer.GetLineText(0),
                     TotalNumberOfLines = _viewer.TotalNumberOfLines,
                     CaretPosition = _viewer.TextEditor.ActiveTextAreaControl.Caret.Position,
-                    FirstVisibleLine = _viewer.FirstVisibleLine
+                    FirstVisibleLine = _viewer.FirstVisibleLine,
+                    VerticalScrollPos = _viewer.VScrollPosition
                 };
                 currentViewPosition.CaretVisible = currentViewPosition.CaretPosition.Line >= currentViewPosition.FirstVisibleLine &&
                                                    currentViewPosition.CaretPosition.Line < currentViewPosition.FirstVisibleLine + _viewer.TextEditor.ActiveTextAreaControl.TextArea.TextView.VisibleLineCount;
@@ -565,7 +563,7 @@ namespace GitUI.Editor
                     return;
                 }
 
-                var viewPosition = _currentViewPosition;
+                ViewPosition viewPosition = _currentViewPosition;
                 if (_viewer.TotalNumberOfLines == viewPosition.TotalNumberOfLines)
                 {
                     _viewer.FirstVisibleLine = viewPosition.FirstVisibleLine;
@@ -591,6 +589,9 @@ namespace GitUI.Editor
                         _viewer.FirstVisibleLine = line;
                     }
                 }
+
+                // Reset the ScrollPos to stop annoying flicker when changing number of visible lines
+                _viewer.VScrollPosition = viewPosition.VerticalScrollPos;
             }
 
             public readonly struct TestAccessor
@@ -626,6 +627,7 @@ namespace GitUI.Editor
             internal int FirstVisibleLine;
             internal bool CaretVisible; // if not, FirstVisibleLine has priority for restoring
             internal DiffLineInfo ActiveLineNum;
+            internal int VerticalScrollPos;
         }
 
         internal TestAccessor GetTestAccessor() => new TestAccessor(this);
