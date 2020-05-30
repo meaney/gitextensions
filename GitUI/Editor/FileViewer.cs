@@ -278,6 +278,8 @@ namespace GitUI.Editor
         [DefaultValue(true)]
         private bool ShowSyntaxHighlightingInDiff { get; set; }
 
+        public int LineAtCaret => internalFileViewer.LineAtCaret;
+
         // Public methods
 
         public void SetGitBlameGutter(IEnumerable<GitBlameEntry> gitBlameEntries)
@@ -666,6 +668,12 @@ namespace GitUI.Editor
             {
                 applySelectedLines(0, GetText().Length, reverse: false);
             }
+        }
+
+        [CanBeNull]
+        public DiffLineInfo GetDiffLineInfo(int caretLine)
+        {
+            return internalFileViewer.GetDiffLineInfo(caretLine);
         }
 
         // Protected

@@ -2,15 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using GitCommands;
 using GitCommands.Git;
+using GitExtUtils;
 using GitUI.CommandsDialogs.BrowseDialog;
+using GitUI.Editor;
+using GitUI.Editor.Diff;
 using GitUI.HelperDialogs;
 using GitUI.Hotkey;
+using GitUI.Script;
 using GitUI.UserControls;
 using GitUI.UserControls.RevisionGrid;
 using GitUIPluginInterfaces;
@@ -52,6 +58,98 @@ namespace GitUI.CommandsDialogs
             _revisionDiffContextMenuController = new FileStatusListContextMenuController();
             DiffText.TopScrollReached += FileViewer_TopScrollReached;
             DiffText.BottomScrollReached += FileViewer_BottomScrollReached;
+
+            DiffText.AddContextMenuEntry("Add note...", AddGitNote_Click);
+        }
+
+        private void AddGitNote_Click(object sender, EventArgs e)
+        {
+            IFileDiffMetaData metaData = GetMetaData();
+
+            using (var prompt = new SimplePrompt())
+            {
+                Form form = FindForm();
+                prompt.Owner = form;
+
+                Point? locationOnForm = form?.PointToClient(Parent.PointToScreen(Location));
+
+                if (locationOnForm != null)
+                {
+                    prompt.StartPosition = FormStartPosition.Manual;
+                    prompt.Left = locationOnForm.Value.X + ((ClientSize.Width - prompt.Width) / 2);
+                    prompt.Top = locationOnForm.Value.Y + ((ClientSize.Height - prompt.Height) / 2);
+                }
+
+                prompt.ShowIcon = false;
+                prompt.FormBorderStyle = FormBorderStyle.SizableToolWindow;
+                prompt.ShowDialog(form);
+                string userEntry = prompt.UserInput;
+
+                if (string.IsNullOrEmpty(userEntry))
+                {
+                    return;
+                }
+
+                try
+                {
+                    StringBuilder notesBuilder = new StringBuilder();
+                    notesBuilder.AppendLine($"\"*{metaData.FileName}:{metaData.LineNumber}*");
+                    notesBuilder.Append("{code:c#}");
+                    notesBuilder.Append($"{metaData.LineText}");
+                    notesBuilder.AppendLine("{code}");
+                    notesBuilder.Append("{color:green}");
+                    notesBuilder.Append(userEntry);
+                    notesBuilder.AppendLine("{color}\"");
+                    notesBuilder.AppendLine("----");
+                    var args = new GitArgumentBuilder("notes")
+                    {
+                        "append",
+                        DiffFiles.SelectedItem.SecondRevision.ObjectId.ToString(),
+                        "-m",
+                        notesBuilder.ToString()
+                    };
+                    using (var process = Module.GitCommandRunner.RunDetached(args))
+                    {
+                        process.WaitForExit();
+                    }
+                }
+                catch (Win32Exception ex)
+                {
+                    Trace.WriteLine(ex);
+                }
+            }
+        }
+
+        [NotNull]
+        public IFileDiffMetaData GetMetaData()
+        {
+            string selectedText = DiffText.GetSelectedText();
+            string diffContents = DiffText.GetText();
+            int lineAtCaret = DiffText.LineAtCaret;
+            DiffLineInfo diffLineInfo = DiffText.GetDiffLineInfo(lineAtCaret);
+
+            int codeLineNumber = lineAtCaret + 1;
+            if (diffLineInfo != null)
+            {
+                codeLineNumber = diffLineInfo.RightLineNumber;
+            }
+
+            int lineCount = 1;
+            int newLineIndex = 0;
+            newLineIndex = diffContents.IndexOf('\n', newLineIndex);
+
+            while (newLineIndex >= 0 && lineCount < lineAtCaret)
+            {
+                newLineIndex = diffContents.IndexOf('\n', newLineIndex + 1);
+                lineCount++;
+            }
+
+            int nextNewLineIndex = diffContents.IndexOf('\n', newLineIndex + 1);
+
+            int lineLength = nextNewLineIndex - newLineIndex;
+            string currentLine = lineLength > 0 ? diffContents.Substring(newLineIndex, lineLength).Trim('\r', '\n') : string.Empty;
+
+            return new FileDiffMetaData(DiffFiles.SelectedItem.Item.Name, codeLineNumber, selectedText, currentLine, diffContents);
         }
 
         private void FileViewer_TopScrollReached(object sender, EventArgs e)

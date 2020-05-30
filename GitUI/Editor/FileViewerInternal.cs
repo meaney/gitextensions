@@ -232,6 +232,12 @@ namespace GitUI.Editor
 
         public bool? ShowLineNumbers { get; set; }
 
+        [CanBeNull]
+        public DiffLineInfo GetDiffLineInfo(int caretLine)
+        {
+            return _lineNumbersControl.GetLineInfo(caretLine);
+        }
+
         public void SetText(string text, Action openWithDifftool, bool isDiff = false)
         {
             _currentViewPositionCache.Capture();
